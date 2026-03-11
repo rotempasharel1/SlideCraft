@@ -738,14 +738,14 @@ def auto_save_course():
         if existing_id:
             # Update the existing course record
             res = requests.put(
-                f"{API_URL}/projects/{existing_id}",
+                f"{API_URL}/courses/{existing_id}",
                 json=payload,
                 headers=auth_headers(), timeout=30
             )
         else:
             # Create brand-new record
             res = requests.post(
-                f"{API_URL}/projects",
+                f"{API_URL}/courses",
                 json=payload,
                 headers=auth_headers(), timeout=30
             )
@@ -992,7 +992,7 @@ def my_courses_view():
 
     try:
         res = requests.get(
-            f"{API_URL}/projects/my",
+            f"{API_URL}/courses/my",
             headers=auth_headers(),
             timeout=30
         )
@@ -1073,7 +1073,7 @@ def my_courses_view():
                                 "is_public": True
                             }
                             share_res = requests.put(
-                                f"{API_URL}/projects/{project['id']}",
+                                f"{API_URL}/courses/{project['id']}",
                                 json=share_payload,
                                 headers=auth_headers(),
                                 timeout=30
@@ -1092,7 +1092,7 @@ def my_courses_view():
                                 "is_public": False
                             }
                             unshare_res = requests.put(
-                                f"{API_URL}/projects/{project['id']}",
+                                f"{API_URL}/courses/{project['id']}",
                                 json=unshare_payload,
                                 headers=auth_headers(),
                                 timeout=30
@@ -1105,7 +1105,7 @@ def my_courses_view():
                 with col_del:
                     if st.button("🗑️ Delete", key=f"del_my_{project['id']}", use_container_width=True, type="secondary"):
                         del_res = requests.delete(
-                            f"{API_URL}/projects/{project['id']}",
+                            f"{API_URL}/courses/{project['id']}",
                             headers=auth_headers(),
                             timeout=30
                         )
@@ -1125,7 +1125,7 @@ def shared_courses_view():
     st.markdown("Explore and learn from courses created by fellow educators and students.")
 
     try:
-        res = requests.get(f"{API_URL}/projects/shared", timeout=30)
+        res = requests.get(f"{API_URL}/courses/shared", timeout=30)
         if res.status_code == 200:
             projects = res.json()
             if not projects:
@@ -1214,7 +1214,7 @@ def admin_panel():
     st.subheader("Manage All Courses")
     try:
         res = requests.get(
-            f"{API_URL}/admin/projects",
+            f"{API_URL}/admin/courses",
             headers=auth_headers(),
             timeout=30
         )
@@ -1260,7 +1260,7 @@ def admin_panel():
                 with col2:
                     if st.button("🗑️ Delete", key=f"del_{project['id']}", use_container_width=True, type="secondary"):
                         del_res = requests.delete(
-                            f"{API_URL}/admin/projects/{project['id']}",
+                            f"{API_URL}/admin/courses/{project['id']}",
                             headers=auth_headers(),
                             timeout=30
                         )

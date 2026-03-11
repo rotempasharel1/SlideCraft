@@ -350,8 +350,8 @@ def delete_chat_draft(authorization: str | None = Header(default=None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/projects/shared")
-def get_shared_projects():
+@app.get("/courses/shared")
+def get_shared_courses():
     try:
         response = (
             supabase_admin.table("projects")
@@ -366,8 +366,8 @@ def get_shared_projects():
         return []
 
 
-@app.get("/projects/my")
-def get_my_projects(authorization: str | None = Header(default=None)):
+@app.get("/courses/my")
+def get_my_courses(authorization: str | None = Header(default=None)):
     profile = get_current_profile(authorization)
 
     try:
@@ -384,8 +384,8 @@ def get_my_projects(authorization: str | None = Header(default=None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/projects")
-def save_project(
+@app.post("/courses")
+def save_course(
     project: ProjectCreate,
     authorization: str | None = Header(default=None),
 ):
@@ -404,9 +404,9 @@ def save_project(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.put("/projects/{project_id}")
-def update_project(
-    project_id: str,
+@app.put("/courses/{course_id}")
+def update_course(
+    course_id: str,
     project: ProjectCreate,
     authorization: str | None = Header(default=None),
 ):
@@ -418,7 +418,7 @@ def update_project(
         check = (
             supabase_admin.table("projects")
             .select("id")
-            .eq("id", project_id)
+            .eq("id", course_id)
             .eq("owner_id", profile["id"])
             .execute()
         )
@@ -430,7 +430,7 @@ def update_project(
             "content": project.content,
             "is_public": project.is_public,
         }
-        response = supabase_admin.table("projects").update(data).eq("id", project_id).execute()
+        response = supabase_admin.table("projects").update(data).eq("id", course_id).execute()
         return response.data[0] if response.data else {"status": "ok"}
     except HTTPException:
         raise
@@ -438,8 +438,8 @@ def update_project(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/admin/projects")
-def get_all_projects(authorization: str | None = Header(default=None)):
+@app.get("/admin/courses")
+def get_all_courses(authorization: str | None = Header(default=None)):
     require_admin(authorization)
 
     try:
@@ -455,23 +455,23 @@ def get_all_projects(authorization: str | None = Header(default=None)):
         return []
 
 
-@app.delete("/admin/projects/{project_id}")
-def delete_project(
-    project_id: str,
+@app.delete("/admin/courses/{course_id}")
+def delete_course(
+    course_id: str,
     authorization: str | None = Header(default=None),
 ):
     require_admin(authorization)
 
     try:
-        response = supabase_admin.table("projects").delete().eq("id", project_id).execute()
+        response = supabase_admin.table("projects").delete().eq("id", course_id).execute()
         return {"status": "success", "deleted": response.data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/projects/{project_id}")
-def delete_my_project(
-    project_id: str,
+@app.delete("/courses/{course_id}")
+def delete_my_course(
+    course_id: str,
     authorization: str | None = Header(default=None),
 ):
     """Allow a user to delete their own course by ID."""
@@ -482,14 +482,14 @@ def delete_my_project(
         check = (
             supabase_admin.table("projects")
             .select("id")
-            .eq("id", project_id)
+            .eq("id", course_id)
             .eq("owner_id", profile["id"])
             .execute()
         )
         if not check.data:
             raise HTTPException(status_code=404, detail="Course not found or you don't have permission to delete it.")
 
-        response = supabase_admin.table("projects").delete().eq("id", project_id).execute()
+        response = supabase_admin.table("projects").delete().eq("id", course_id).execute()
         return {"status": "success", "deleted": response.data}
     except HTTPException:
         raise
