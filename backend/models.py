@@ -25,20 +25,26 @@ class ChatRequest(BaseModel):
 class EmailLoginRequest(BaseModel):
     email: str
 
-class CoursePage(BaseModel):
-    title: str = Field(description="Title of the page")
-    content: str = Field(description="Educational content in Markdown format")
+class Slide(BaseModel):
+    title: str = Field(description="Title of the slide")
+    content: str = Field(description="Content of the slide in Markdown format. Use bullet points and concise text.")
+    design_hint: str = Field(description="Brief hint on how to visually design this slide (e.g., 'Use a large image on the left', 'Comparison table').")
 
-class QuizQuestion(BaseModel):
-    question: str = Field(description="The multiple choice question")
-    options: List[str] = Field(description="List of 4 possible answers")
-    correct_answer: str = Field(description="The exact string of the correct option")
-    explanation: str = Field(description="Explanation of why this answer is correct")
+class LessonPlan(BaseModel):
+    objective: str = Field(description="The main educational objective of this lesson.")
+    duration: str = Field(description="Recommended duration (e.g., '45 minutes').")
+    activities: List[str] = Field(description="List of step-by-step activities for the teacher.")
+    materials_needed: List[str] = Field(description="List of materials or resources needed.")
 
 class CourseGenerationResponse(BaseModel):
-    pages: List[CoursePage] = Field(description="3 to 5 pages of structured educational content. Use highly engaging markdown. Be thorough and detailed.")
+    slides: List[Slide] = Field(description="5 to 7 slides for the presentation. Focus on high-impact visual content.")
+    lesson_plan: LessonPlan = Field(description="A detailed lesson plan corresponding to the presentation.")
     quiz: List[QuizQuestion] = Field(description="Exactly 5 multiple-choice questions testing the newly generated content.")
-    chat_message: str = Field(description="Message to the user summarizing this chapter, suggesting the exact next topic to learn, and explicitly asking if they want to continue building that next chapter, or if they want to finish and save this course to their library.")
+    chat_message: str = Field(description="Message to the user summarizing the lesson, and asking if they want to save it or build another topic.")
+
+class RedesignResponse(BaseModel):
+    slides: List[Slide] = Field(description="The redesigned version of the input slides, with better structure and design hints.")
+    chat_message: str = Field(description="Summary of the changes and design improvements made.")
 
 class DraftState(BaseModel):
     messages: list
