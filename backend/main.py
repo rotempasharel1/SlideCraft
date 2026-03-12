@@ -4,12 +4,13 @@ from urllib.parse import quote
 from google import genai
 from google.genai import types
 import requests
+import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from .database import supabase_auth, supabase_admin
-from .models import ProjectCreate, EmailLoginRequest, ChatRequest, CourseGenerationResponse, DraftState
+from .models import ProjectCreate, EmailLoginRequest, ChatRequest, CourseGenerationResponse, DraftState, RedesignResponse
 
 load_dotenv()
 
@@ -252,18 +253,14 @@ def generate_course(payload: ChatRequest):
 
     try:
         system_instructions = (
-            "You are an expert AI teacher that builds educational courses chapter by chapter. "
+            "You are an expert AI presentation designer and teacher. "
             "STRICT OUTPUT RULES — you MUST follow these exactly:\n"
-            "1. PAGES: Generate EXACTLY 5 detailed educational pages for this chapter. "
-            "Each page must have a clear title and rich, thorough content in Markdown. "
-            "Do NOT generate fewer than 5 pages under any circumstances.\n"
-            "2. QUIZ: After the pages, create EXACTLY 5 multiple-choice questions that test "
-            "understanding of the content just generated. Each question MUST have exactly 4 answer options. "
-            "Do NOT skip the quiz.\n"
-            "3. CHAT MESSAGE: Write a short message summarising this chapter, suggesting the next "
-            "logical topic, and asking the user if they want to continue or finish and save.\n"
-            "4. LANGUAGE: ALL output (titles, content, questions, options, explanations, chat message) "
-            "MUST be in English only, regardless of the language the user writes in."
+            "1. SLIDES: Generate 5 to 7 high-impact slides. Each slide must have a title, "
+            "concise Markdown content (use bullet points), and a design_hint (e.g., 'Use a large image', 'Timeline layout').\n"
+            "2. LESSON PLAN: Create a detailed lesson plan with objectives, duration, activities, and materials.\n"
+            "3. QUIZ: Create EXACTLY 5 multiple-choice questions testing the content.\n"
+            "4. CHAT MESSAGE: Write a short summary and ask the user if they want to save or build another topic.\n"
+            "5. LANGUAGE: ALL output MUST be in English."
         )
 
         full_prompt = (
@@ -298,6 +295,33 @@ def generate_course(payload: ChatRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini error: {e}")
+
+@app.post("/chat/redesign")
+def redesign_presentation(payload: ChatRequest):
+    content = (payload.prompt or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Content to redesign is required.")
+
+    try:
+        system_instructions = (
+            "You are a premium presentation redesign agent. "
+            "Take the provided text/slides and redesign them into a professional, innovative structure. "
+            "Improve the flow, clarify points, and provide design hints for each slide."
+        )
+
+        response = genai_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=content,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instructions,
+                temperature=0.7,
+                response_mime_type="application/json",
+                response_schema=RedesignResponse,
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Redesign error: {e}")
 
 @app.post("/chat/draft")
 def save_chat_draft(

@@ -36,6 +36,12 @@ class LessonPlan(BaseModel):
     activities: List[str] = Field(description="List of step-by-step activities for the teacher.")
     materials_needed: List[str] = Field(description="List of materials or resources needed.")
 
+class QuizQuestion(BaseModel):
+    question: str = Field(description="The multiple choice question")
+    options: List[str] = Field(description="List of 4 possible answers")
+    correct_answer: str = Field(description="The exact string of the correct option")
+    explanation: str = Field(description="Explanation of why this answer is correct")
+
 class CourseGenerationResponse(BaseModel):
     slides: List[Slide] = Field(description="5 to 7 slides for the presentation. Focus on high-impact visual content.")
     lesson_plan: LessonPlan = Field(description="A detailed lesson plan corresponding to the presentation.")

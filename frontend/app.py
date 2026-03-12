@@ -6,7 +6,7 @@ import streamlit as st
 import requests
 
 # Backend API Base URL
-API_URL = "http://127.0.0.1:8000"
+API_URL = "http://127.0.0.1:8800"
 GOOGLE_LOGIN_URL = f"{API_URL}/auth/google/start"
 
 CARD_COLORS = [
@@ -32,8 +32,8 @@ def simple_md_to_html(md_text: str) -> str:
     return text
 
 st.set_page_config(
-    page_title="EduBuilder AI",
-    page_icon="🎓",
+    page_title="SlideCraft AI",
+    page_icon="🎨",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -62,17 +62,9 @@ def apply_custom_css():
         }
 
         .stApp {
-            background: linear-gradient(
-                -45deg,
-                #0b1f3a,
-                #123f6b,
-                #1f78c1,
-                #f57c00,
-                #ff9f1c,
-                #0b1f3a
-            );
-            background-size: 500% 500%;
-            animation: gradient_wave 16s ease-in-out infinite;
+            background: radial-gradient(circle at 50% 50%, #1a2a6c, #b21f1f, #fdbb2d);
+            background-size: 400% 400%;
+            animation: gradient_wave 15s ease infinite;
             min-height: 100vh;
         }
 
@@ -85,8 +77,9 @@ def apply_custom_css():
         }
 
         .block-container {
-            padding-top: 1.2rem !important;
+            padding-top: 1.5rem !important;
             padding-bottom: 2rem !important;
+            max-width: 1200px !important;
         }
 
         .stButton > button,
@@ -484,11 +477,40 @@ def apply_custom_css():
         }
 
         div[data-testid="stVerticalBlock"]:has(.course-viewer-anchor) .course-viewer-box {
-            background: #ffffff !important;
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+            padding: 2rem !important;
             margin-top: 0 !important;
+            border-radius: 20px !important;
+        }
+
+        .slide-title {
+            font-size: 2.2rem !important;
+            font-weight: 800 !important;
+            background: linear-gradient(90deg, #1a2a6c, #b21f1f) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            margin-bottom: 1.5rem !important;
+        }
+
+        .design-hint {
+            background: rgba(255, 159, 28, 0.1) !important;
+            border-left: 4px solid #ff9f1c !important;
+            padding: 0.75rem 1rem !important;
+            margin-top: 1.5rem !important;
+            font-style: italic !important;
+            color: #555 !important;
+            border-radius: 4px !important;
+        }
+
+        .lesson-plan-card {
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            padding: 1.5rem !important;
+            margin-top: 2rem !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -499,12 +521,12 @@ apply_custom_css()
 # --- Session State Initialization ---
 if "user" not in st.session_state:
     st.session_state.user = None
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "course_pages" not in st.session_state:
-    st.session_state.course_pages = []
-if "current_page_index" not in st.session_state:
-    st.session_state.current_page_index = 0
+if "slides" not in st.session_state:
+    st.session_state.slides = []
+if "lesson_plan" not in st.session_state:
+    st.session_state.lesson_plan = None
+if "current_slide_index" not in st.session_state:
+    st.session_state.current_slide_index = 0
 if "access_token" not in st.session_state:
     st.session_state.access_token = None
 if "project_ready_to_save" not in st.session_state:
@@ -514,7 +536,7 @@ if "draft_loaded" not in st.session_state:
 if "last_saved_course_id" not in st.session_state:
     st.session_state.last_saved_course_id = None
 if "current_page" not in st.session_state:
-    st.session_state.current_page = "Create Course"
+    st.session_state.current_page = "Create"
 if "course_is_public" not in st.session_state:
     st.session_state.course_is_public = False
 if "is_read_only" not in st.session_state:
@@ -599,8 +621,8 @@ def render_sidebar_user_card():
     <div class="user-card">
         <div class="user-initial">{initial}</div>
         <div class="user-meta">
-            <div class="user-name">{name}</div>
-            <div class="user-email">{email}</div>
+            <div class="user-name" style="color:white;">{name}</div>
+            <div class="user-email" style="color:rgba(255,255,255,0.8);">{email}</div>
         </div>
     </div>
     """
@@ -608,21 +630,8 @@ def is_finish_intent(text: str) -> bool:
     t = text.strip().lower()
 
     finish_phrases = [
-        "the project is done",
-        "project is done",
-        "i'm done",
-        "im done",
-        "we are done",
-        "we're done",
-        "finished",
-        "let's save",
-        "save the project",
-        "save this course",
-        "the course is done",
-        "done with the project",
-        "done with the course",
+        "done", "finished", "save", "ready", "מותאם", "סיימתי"
     ]
-
     return any(phrase in t for phrase in finish_phrases)
 
 
@@ -686,8 +695,9 @@ def load_draft_state():
             data = res.json()
             if data and data.get("messages"):
                 st.session_state.messages = data.get("messages", [])
-                st.session_state.course_pages = data.get("course_pages", [])
-                st.session_state.current_page_index = data.get("current_page_index", 0)
+                st.session_state.slides = data.get("slides", [])
+                st.session_state.lesson_plan = data.get("lesson_plan")
+                st.session_state.current_slide_index = data.get("current_slide_index", 0)
                 st.session_state.last_saved_course_id = data.get("last_saved_course_id")
                 st.session_state.course_is_public = data.get("course_is_public", False)
                 return True
@@ -700,8 +710,9 @@ def save_draft_state():
         return
     draft_data = {
         "messages": st.session_state.messages,
-        "course_pages": st.session_state.course_pages,
-        "current_page_index": st.session_state.current_page_index,
+        "slides": st.session_state.slides,
+        "lesson_plan": st.session_state.lesson_plan,
+        "current_slide_index": st.session_state.current_slide_index,
         "last_saved_course_id": st.session_state.last_saved_course_id,
         "course_is_public": st.session_state.course_is_public,
     }
@@ -759,10 +770,10 @@ def auto_save_course():
 
 # --- UI Components ---
 def chat_interface():
-    st.title("🎓 Create a New Course")
+    st.title("🎨 Create a New Presentation")
     st.markdown(
-        "Build dynamic micro-lessons and entire courses interactively using our AI platform. "
-        "When you're done, just write in the chat that the project/course is finished and then save it."
+        "Build innovative and beautiful presentations with SlideCraft. "
+        "Just describe your topic, and I'll generate slides and a lesson plan for you."
     )
 
     for msg in st.session_state.messages:
@@ -799,196 +810,136 @@ def chat_interface():
                 st.markdown(assistant_reply)
             save_draft_state()
         else:
-            context = "Previous Chat Messages:\n"
-            for m in st.session_state.messages:
-                if m["role"] == "assistant":
-                    context += m["content"] + "\n"
-                    
-            context += "\nGenerated Course Content So Far:\n"
-            for p in st.session_state.course_pages:
-                if p.get("type") == "content":
-                    context += f"### {p.get('title')}\n{p.get('content')}\n\n"
-                elif p.get("type") == "quiz":
-                    context += "### Quiz\n"
-                    for q in p.get("questions", []):
-                        context += f"- Q: {q.get('question')} (A: {q.get('correct_answer')})\n"
-
             with st.chat_message("assistant", avatar="logo.png"):
-                with st.spinner("Generating your course..."):
+                with st.spinner("Crafting your presentation..."):
                     try:
                         res = requests.post(
                             f"{API_URL}/chat/generate_course",
-                            json={"prompt": prompt, "context": context},
-                            timeout=60
+                            json={"prompt": prompt},
+                            timeout=90
                         )
                         if res.status_code == 200:
                             data = res.json()
-                            chat_message = data.get("chat_message", "Here are your new course pages.")
-                            pages = data.get("pages", [])
-                            quiz = data.get("quiz", [])
+                            st.session_state.slides = data.get("slides", [])
+                            st.session_state.lesson_plan = data.get("lesson_plan")
+                            chat_message = data.get("chat_message", "Your presentation is ready!")
                             
-                            num_old_pages = len(st.session_state.course_pages)
-                            
-                            for p in pages:
-                                st.session_state.course_pages.append({"type": "content", "title": p.get("title", ""), "content": p.get("content", "")})
-                            
-                            if quiz:
-                                st.session_state.course_pages.append({"type": "quiz", "questions": quiz})
-                                
-                            st.session_state.current_page_index = num_old_pages
-                                
+                            st.session_state.current_slide_index = 0
                             st.markdown(chat_message)
                             st.session_state.messages.append({"role": "assistant", "content": chat_message})
-                            save_draft_state()
-                            # Auto-save the course
-                            saved = auto_save_course()
-                            if saved:
-                                st.session_state.last_saved_course_id = saved.get("id")
+                            
+                            auto_save_course()
+                            st.rerun()
                         else:
-                            try:
-                                detail = res.json().get("detail", "Failed to generate course.")
-                            except Exception:
-                                detail = f"Failed to generate course. Status code: {res.status_code}"
-                            st.error(detail)
+                            st.error("Failed to generate presentation.")
                     except Exception as e:
                         st.error(f"Error: {e}")
 
-     # --- Slide Viewer UI ---
-    if st.session_state.course_pages:
-        with st.container():
-            st.markdown('<div class="course-viewer-anchor"></div>', unsafe_allow_html=True)
-
-            st.subheader("📖 Course Viewer")
-
-            col1, col2, col3 = st.columns([1, 4, 1])
-
-            with col1:
-                if st.button(
-                    "⬅️ Previous",
-                    disabled=st.session_state.current_page_index == 0,
-                    use_container_width=True
-                ):
-                    st.session_state.current_page_index -= 1
+def redesign_interface():
+    st.title("✨ Presentation Redesign")
+    st.markdown("Paste your slide content or text here, and SlideCraft will redesign it beautifully.")
+    
+    content_to_redesign = st.text_area("Slide Content", height=200, placeholder="Slide 1: Intro... Slide 2: Details...")
+    
+    if st.button("Redesign Now", use_container_width=True):
+        if not content_to_redesign:
+            st.warning("Please enter some content first.")
+            return
+            
+        with st.spinner("Redesigning..."):
+            try:
+                res = requests.post(
+                    f"{API_URL}/chat/redesign",
+                    json={"prompt": content_to_redesign},
+                    timeout=60
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    st.session_state.slides = data.get("slides", [])
+                    st.session_state.lesson_plan = None
+                    st.session_state.current_slide_index = 0
+                    st.success(data.get("chat_message", "Redesign complete!"))
+                    auto_save_course()
                     st.rerun()
+                else:
+                    st.error("Redesign failed.")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
-            with col3:
-                if st.button(
-                    "Next ➡️",
-                    disabled=st.session_state.current_page_index >= len(st.session_state.course_pages) - 1,
-                    use_container_width=True
-                ):
-                    st.session_state.current_page_index += 1
+def slide_viewer():
+    if not st.session_state.slides:
+        return
+
+    st.markdown('<div class="course-viewer-anchor"></div>', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col1:
+        if st.button("⬅️", disabled=st.session_state.current_slide_index == 0):
+            st.session_state.current_slide_index -= 1
+            st.rerun()
+    with col3:
+        if st.button("➡️", disabled=st.session_state.current_slide_index >= len(st.session_state.slides)-1):
+            st.session_state.current_slide_index += 1
+            st.rerun()
+    with col2:
+        st.markdown(f"<div style='text-align:center; color:#111;'>Slide {st.session_state.current_slide_index + 1} / {len(st.session_state.slides)}</div>", unsafe_allow_html=True)
+
+    slide = st.session_state.slides[st.session_state.current_slide_index]
+    
+    st.markdown('<div class="course-viewer-box">', unsafe_allow_html=True)
+    st.markdown(f'<div class="slide-title">{slide.get("title")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#333; font-size:1.1rem;">{slide.get("content")}</div>', unsafe_allow_html=True)
+    if slide.get("design_hint"):
+        st.markdown(f'<div class="design-hint">💡 Design Hint: {slide.get("design_hint")}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.session_state.lesson_plan:
+        with st.expander("📝 View Lesson Plan"):
+            lp = st.session_state.lesson_plan
+            st.markdown(f"### Objective\n{lp.get('objective')}")
+            st.markdown(f"### Duration\n{lp.get('duration')}")
+            st.markdown("### Activities")
+            for act in lp.get('activities', []):
+                st.markdown(f"- {act}")
+            st.markdown("### Materials Needed")
+            for mat in lp.get('materials_needed', []):
+                st.markdown(f"- {mat}")
+
+    # Integration of Slide Viewer
+    if st.session_state.slides:
+        slide_viewer()
+
+        if not st.session_state.get("is_read_only", False):
+            st.markdown("<br>", unsafe_allow_html=True)
+            col_act1, col_act2 = st.columns(2)
+            with col_act1:
+                if st.button("🔨 Enhance Presentation", use_container_width=True):
+                    st.session_state._pending_prompt = "Please improve the current presentation design and content."
+                    if st.session_state.course_is_public:
+                        st.session_state.course_is_public = False
+                        auto_save_course()
                     st.rerun()
-
-            with col2:
-                st.markdown(
-                    f"""
-                    <div style='text-align: center; color: #111111; font-weight: 600; padding-top: 5px;'>
-                        Page {st.session_state.current_page_index + 1} of {len(st.session_state.course_pages)}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            current_page = st.session_state.course_pages[st.session_state.current_page_index]
-
-            st.markdown("<div class='course-viewer-box'>", unsafe_allow_html=True)
-
-            if current_page.get("type") == "quiz":
-                st.markdown(
-                    "<div style='color:#111111;'><h3 style='color:#111111;'>📝 Chapter Quiz</h3></div>",
-                    unsafe_allow_html=True
-                )
-                questions = current_page.get("questions", [])
-
-                for i, q in enumerate(questions):
-                    st.markdown(
-                        f"<div style='color:#111111;'><b>Question {i+1}: {q.get('question', '')}</b></div>",
-                        unsafe_allow_html=True
-                    )
-                    user_ans = st.radio(
-                        "Select an answer:",
-                        q.get('options', []),
-                        key=f"quiz_{st.session_state.current_page_index}_{i}",
-                        index=None,
-                        label_visibility="collapsed"
-                    )
-
-                    check_btn = st.button(
-                        "Check Answer",
-                        key=f"check_{st.session_state.current_page_index}_{i}"
-                    )
-                    if check_btn:
-                        if user_ans == q.get('correct_answer'):
-                            st.success(f"**Correct!** {q.get('explanation', '')}")
-                        elif user_ans:
-                            st.error(
-                                f"**Incorrect.** The correct answer is: {q.get('correct_answer', '')}. {q.get('explanation', '')}"
-                            )
-                        else:
-                            st.warning("Please select an answer first.")
-                    st.markdown("---")
-            else:
-                st.markdown(
-                    f"<div style='color:#111111;'><h3 style='color:#111111;'>{current_page.get('title', '')}</h3></div>",
-                    unsafe_allow_html=True
-                )
-                st.markdown(
-                    f"<div style='color:#111111;'>{current_page.get('content', '')}</div>",
-                    unsafe_allow_html=True
-                )
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("---")
-
-            if not st.session_state.get("is_read_only", False):
-                # Always display the actions below the course content
-                st.markdown(
-                    "<div style='margin-bottom: 10px; color:#111111;'><b>What would you like to do?</b></div>",
-                    unsafe_allow_html=True
-                )
-                col_act1, col_act2 = st.columns(2)
-                with col_act1:
-                    if st.button("🔨 Continue Building", use_container_width=True):
-                        st.session_state._pending_prompt = "Please continue building the next chapter."
-                        # Unshare automatically if they continue building, since it's now a work-in-progress again
-                        if st.session_state.course_is_public:
-                            st.session_state.course_is_public = False
-                            auto_save_course()
+            with col_act2:
+                if not st.session_state.course_is_public:
+                    if st.button("🌐 Share with Community", use_container_width=True, type="primary"):
+                        st.session_state.course_is_public = True
+                        saved = auto_save_course()
+                        if saved:
+                            st.success("🌟 Presentation shared!")
+                            st.balloons()
+                            save_draft_state()
+                            st.rerun()
+                else:
+                    if st.button("🚫 Unshare", use_container_width=True):
+                        st.session_state.course_is_public = False
+                        auto_save_course()
                         st.rerun()
-                with col_act2:
-                    if not st.session_state.course_is_public:
-                        if st.button("🌐 Share with Community", use_container_width=True, type="primary"):
-                            st.session_state.course_is_public = True
-                            saved = auto_save_course()
-                            if saved:
-                                st.success("🌟 Course published to the community!")
-                                st.balloons()
-                                save_draft_state()
-                                st.rerun()
-                            else:
-                                st.session_state.course_is_public = False
-                                st.error("Failed to publish the course.")
-                    else:
-                        if st.button("🚫 Unshare", use_container_width=True, type="secondary"):
-                            st.session_state.course_is_public = False
-                            saved = auto_save_course()
-                            if saved:
-                                st.success("Course removed from the community.")
-                                save_draft_state()
-                                st.rerun()
-                            else:
-                                st.session_state.course_is_public = True
-                                st.error("Failed to unshare course.")
-
-                # Show auto-saved info prominently below the actions
-                st.info("✅ Course auto-saved to **My Courses**. You can continue adding chapters or start a new course from the sidebar.")
+            st.info("✅ Auto-saved to **My Projects**.")
 
 
 def my_courses_view():
-    st.title("📚 My Courses")
-    st.markdown("All your saved courses appear here. You can view or delete them at any time.")
+    st.title("📚 My Projects")
+    st.markdown("All your saved presentations and lesson plans.")
 
     try:
         res = requests.get(
@@ -1032,37 +983,37 @@ def my_courses_view():
                 with col_edit:
                     if st.button("✏️ Edit", key=f"edit_my_{project['id']}", use_container_width=True):
                         raw_content = project.get("content", "")
-                        # Try to restore the original structured pages from the embedded JSON
-                        restored_pages = None
-                        m = re.search(r'<!-- COURSE_PAGES_JSON\n(.*?)\n-->', raw_content, re.DOTALL)
+                        restored_data = None
+                        # Try to restore from the new SLIDECRAFT_JSON tag first
+                        m = re.search(r'<!-- SLIDECRAFT_JSON\n(.*?)\n-->', raw_content, re.DOTALL)
                         if m:
                             try:
-                                restored_pages = json.loads(m.group(1))
-                            except Exception:
-                                pass
-                        if restored_pages:
-                            st.session_state.course_pages = restored_pages
+                                restored_data = json.loads(m.group(1))
+                            except: pass
+                        
+                        if restored_data:
+                            st.session_state.slides = restored_data.get("slides", [])
+                            st.session_state.lesson_plan = restored_data.get("lesson_plan")
                         else:
-                            # Fallback for old courses saved before this feature
-                            st.session_state.course_pages = [{
-                                "type": "content",
-                                "title": project.get("title", "My Course"),
-                                "content": raw_content,
-                            }]
-                        st.session_state.current_page_index = 0
+                            # Fallback for old COURSE_PAGES_JSON or raw content
+                            m_old = re.search(r'<!-- COURSE_PAGES_JSON\n(.*?)\n-->', raw_content, re.DOTALL)
+                            if m_old:
+                                try:
+                                    pages = json.loads(m_old.group(1))
+                                    st.session_state.slides = [{"title": p.get("title", ""), "content": p.get("content", ""), "design_hint": ""} for p in pages if p.get("type") == "content"]
+                                except: pass
+                            else:
+                                st.session_state.slides = [{"title": project.get("title", "Project"), "content": raw_content, "design_hint": ""}]
+                            st.session_state.lesson_plan = None
+
+                        st.session_state.current_slide_index = 0
                         st.session_state.last_saved_course_id = project["id"]
                         st.session_state.course_is_public = project.get("is_public", False)
                         st.session_state.project_ready_to_save = False
                         st.session_state.is_read_only = False
-                        st.session_state.messages = [{
-                            "role": "assistant",
-                            "content": (
-                                f"Welcome back! Continuing course: **{project.get('title', 'My Course')}**.\n\n"
-                                "You can ask me to add new chapters, expand existing topics, or make any other changes."
-                            ),
-                        }]
+                        st.session_state.messages = [{"role": "assistant", "content": f"Continuing project: **{project.get('title')}**."}]
                         save_draft_state()
-                        st.session_state._pending_page = "Create Course"
+                        st.session_state._pending_page = "Create"
                         st.rerun()
                 with col_share:
                     if not project.get("is_public"):
@@ -1121,8 +1072,8 @@ def my_courses_view():
 
 
 def shared_courses_view():
-    st.title("🌐 Shared Community Courses")
-    st.markdown("Explore and learn from courses created by fellow educators and students.")
+    st.title("🌐 Community Gallery")
+    st.markdown("Explore innovative presentations shared by the community.")
 
     try:
         res = requests.get(f"{API_URL}/courses/shared", timeout=30)
@@ -1161,42 +1112,38 @@ def shared_courses_view():
                         </details>
                     """, unsafe_allow_html=True)
                 with col_start:
-                    if st.button("🚀 Start Course", key=f"start_shared_{project['id']}", use_container_width=True, type="primary"):
+                    if st.button("🚀 View", key=f"start_shared_{project['id']}", use_container_width=True, type="primary"):
                         raw_content = project.get("content", "")
-                        # Try to restore the original structured pages from the embedded JSON
-                        restored_pages = None
-                        m = re.search(r'<!-- COURSE_PAGES_JSON\n(.*?)\n-->', raw_content, re.DOTALL)
+                        restored_data = None
+                        m = re.search(r'<!-- SLIDECRAFT_JSON\n(.*?)\n-->', raw_content, re.DOTALL)
                         if m:
                             try:
-                                restored_pages = json.loads(m.group(1))
-                            except Exception:
-                                pass
-                        if restored_pages:
-                            st.session_state.course_pages = restored_pages
+                                restored_data = json.loads(m.group(1))
+                            except: pass
+                        
+                        if restored_data:
+                            st.session_state.slides = restored_data.get("slides", [])
+                            st.session_state.lesson_plan = restored_data.get("lesson_plan")
                         else:
-                            # Fallback for old courses saved before JSON embedding
-                            st.session_state.course_pages = [{
-                                "type": "content",
-                                "title": project.get("title", "Shared Course"),
-                                "content": raw_content,
-                            }]
-                        st.session_state.current_page_index = 0
-                        # CRITICAL: leave this None so when the user continues, it saves as a NEW course owned by them!
-                        st.session_state.last_saved_course_id = None
+                            # Fallback
+                            m_old = re.search(r'<!-- COURSE_PAGES_JSON\n(.*?)\n-->', raw_content, re.DOTALL)
+                            if m_old:
+                                try:
+                                    pages = json.loads(m_old.group(1))
+                                    st.session_state.slides = [{"title": p.get("title", ""), "content": p.get("content", ""), "design_hint": ""} for p in pages if p.get("type") == "content"]
+                                except: pass
+                            else:
+                                st.session_state.slides = [{"title": project.get("title", "Project"), "content": raw_content, "design_hint": ""}]
+                            st.session_state.lesson_plan = None
+
+                        st.session_state.current_slide_index = 0
+                        st.session_state.last_saved_course_id = None # Copy as new
                         st.session_state.course_is_public = False
                         st.session_state.project_ready_to_save = False
                         st.session_state.is_read_only = True
-                        st.session_state.messages = [{
-                            "role": "assistant",
-                            "content": (
-                                f"Welcome! You are starting **{project.get('title', 'a shared course')}** "
-                                f"originally created by {project.get('owner_name') or 'another user'}.\n\n"
-                                "You can read the pages, take the quiz, or ask me to modify the course for you. "
-                                "Any progress you make will be saved as your own private copy."
-                            ),
-                        }]
+                        st.session_state.messages = [{"role": "assistant", "content": f"Viewing community project: **{project.get('title')}**."}]
                         save_draft_state()
-                        st.session_state._pending_page = "Create Course"
+                        st.session_state._pending_page = "Create"
                         st.rerun()
         else:
             st.error("Failed to load courses.")
@@ -1287,11 +1234,11 @@ def render_logged_out_page():
             pass
 
         st.markdown(
-            "<h2 style='text-align: center; color: white; margin-top: 0.4rem; margin-bottom: 0.5rem;'>Welcome to EduBuilder!</h2>",
+            "<h2 style='text-align: center; color: white; margin-top: 0.4rem; margin-bottom: 0.5rem;'>Welcome to SlideCraft!</h2>",
             unsafe_allow_html=True
         )
         st.markdown(
-            "<div class='auth-subtitle'>Sign in with Google or email to build lessons and courses with AI</div>",
+            "<div class='auth-subtitle'>Design innovative presentations and lesson plans with AI</div>",
             unsafe_allow_html=True
         )
         login()
@@ -1325,37 +1272,40 @@ def main():
         st.session_state.project_ready_to_save = False
         st.rerun()
 
-    if st.sidebar.button("✨ New Course", use_container_width=True, type="primary"):
+    if st.sidebar.button("✨ New Project", use_container_width=True, type="primary"):
         # Clear the backend draft so a fresh session starts clean
         try:
             requests.delete(f"{API_URL}/chat/draft", headers=auth_headers(), timeout=5)
         except:
             pass
         st.session_state.messages = []
-        st.session_state.course_pages = []
-        st.session_state.current_page_index = 0
+        st.session_state.slides = []
+        st.session_state.lesson_plan = None
+        st.session_state.current_slide_index = 0
         st.session_state.last_saved_course_id = None
         st.session_state.course_is_public = False
         st.session_state.project_ready_to_save = False
         st.session_state.is_read_only = False
-        st.session_state.current_page = "Create Course"
+        st.session_state.current_page = "Create"
         st.rerun()
 
     if is_admin:
         st.sidebar.success("Admin Active")
 
-    pages = ["Create Course", "My Courses", "Shared Courses"]
+    pages = ["Create", "Redesign", "My Projects", "Community"]
     if is_admin:
         pages.append("Admin Panel")
 
     st.sidebar.markdown("### Go to")
     page = st.sidebar.radio("Go to", pages, label_visibility="collapsed", key="current_page")
 
-    if page == "Create Course":
+    if page == "Create":
         chat_interface()
-    elif page == "My Courses":
+    elif page == "Redesign":
+        redesign_interface()
+    elif page == "My Projects":
         my_courses_view()
-    elif page == "Shared Courses":
+    elif page == "Community":
         shared_courses_view()
     elif page == "Admin Panel":
         admin_panel()
